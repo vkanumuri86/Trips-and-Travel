@@ -1,0 +1,917 @@
+# %% [markdown]
+# 1) Problem statement.
+# "Trips & Travel.Com" company wants to enable and establish a viable business model to expand the customer base. One of the ways to expand the customer base is to introduce a new offering of packages. Currently, there are 5 types of packages the company is offering * Basic, Standard, Deluxe, Super Deluxe, King. Looking at the data of the last year, we observed that 18% of the customers purchased the packages. However, the marketing cost was quite high because customers were contacted at random without looking at the available information. The company is now planning to launch a new product i.e. Wellness Tourism Package. Wellness Tourism is defined as Travel that allows the traveler to maintain, enhance or kick-start a healthy lifestyle, and support or increase one's sense of well-being. However, this time company wants to harness the available data of existing and potential customers to make the marketing expenditure more efficient.
+# 
+# 2) Content
+# What's inside is more than just rows and columns. Make it easy for others to get started by describing how you acquired the data and what time period it represents, too.
+# 
+# Most important features that have an impact on Product taken (target): Designation, Passport, Tier City, Martial status, occupation.
+# Customers with Designation as Executive should be the target customers for the company .
+# Customers who have passport and are from tier 3 city and are single or unmarried, have large business such customers have higher chances of taking new package.
+# Customers monthly income in range of 15000- 25000, and age range 15-30, prefer 5 star properties also have higher chances of taking new package based on EDA.
+# 
+# 
+# 3) Trips & Travel Pipeline
+# Pipeline Flow:
+# Executive Summary → Business Problem → Data Understanding → EDA → Preprocessing  → Model Training → Model Comparison → Threshold Tuning → Conclusions & Recommendations
+# 
+# 4) We need to analyze the customers' data and information to provide recommendations to the Policy Maker and Marketing Team and also build a model to predict the potential customer who is going to purchase the newly introduced travel package.
+# 
+# 5) Tasks to Solve :
+# To predict which customer is more likely to purchase the newly introduced travel package
+# Which variables are most significant.
+# Which segment of customers should be targeted more.
+# 
+# 6) Models : 1. Logistic Regression 2.Naive Bayes 3. KNN 4.Decision Tree 5. Random Forest 6.XG Boost
+
+# %% [markdown]
+# 
+
+# %%
+!pip install plotly
+
+# %%
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+import plotly.express as px
+warnings.filterwarnings('ignore')
+
+%matplotlib inline
+
+# %%
+df= pd.read_csv('Travel.csv')
+
+# %%
+df.head()
+
+# %% [markdown]
+# #Data Cleaning
+
+# %% [markdown]
+# 1. Handling Missing values
+# 2. Handling Duplicates
+# 3. Check data type
+# 4. Understand the dataset
+# 
+
+# %% [markdown]
+# 
+
+# %%
+df.dtypes
+
+# %%
+print('There are',df.shape[0],'rows')
+print('There are',df.shape[1],'columns')
+
+# %%
+#Eliminate duplicates
+
+print('No.of duplicate rows:',df.duplicated().sum())
+df.loc[df.duplicated(keep=False)]
+
+# %%
+#null values
+
+df.isnull().sum()
+
+# %%
+#checking all the categories:TypeofContact,Occupation,Gender,ProductPitched,
+#MaritalStatus,Designation
+
+df["Gender"].value_counts()
+#df['TypeofContact'].value_counts()
+#df['Occupation'].value_counts()
+#df['ProductPitched'].value_counts()
+#df['MaritalStatus'].value_counts()
+#df['Designation'].value_counts()
+
+
+# %%
+df['TypeofContact'].value_counts()
+
+# %%
+df['Occupation'].value_counts()
+
+# %%
+df['ProductPitched'].value_counts()
+
+# %%
+df['MaritalStatus'].value_counts()
+
+
+# %%
+df['Designation'].value_counts()
+
+
+# %%
+#replacing values for gender and marital status
+
+df["Gender"] = df["Gender"].replace("Fe Male","Female")
+df["MaritalStatus"] = df['MaritalStatus'].replace('Unmarried','Single')
+
+
+
+# %%
+df['Gender'].value_counts()
+
+# %%
+df["MaritalStatus"].value_counts()
+
+# %%
+df.head()
+
+# %%
+#checking missing values,features with nan values
+
+features_with_na=[features for features in df.columns if df[features].isnull().sum()>=1]
+for feature in features_with_na:
+    print(feature,np.round(df[feature].isnull().mean()*100,5), '% missing values')
+
+# %%
+#statistics on numerical columns (null cols)
+df[features_with_na].select_dtypes(exclude='object').describe()
+
+# %% [markdown]
+# Imputing Null values
+# 1. Impute Median value for Age column
+# 2. Impute Mode for Type of Contract
+# 3. Impute Median for Duration of Pitch
+# 4. Impute Mode for NumberofFollowup as it is Discrete feature
+# 5. Impute Mode for PreferredPropertyStar
+# 6. Impute Median for NumberofTrips
+# 7. Impute Mode for NumberOfChildrenVisiting
+# 8. Impute Median for MonthlyIncome
+
+# %%
+#age 
+
+df.Age.fillna(df.Age.median(),inplace=True)
+
+#Type of Contract
+
+df.TypeofContact.fillna(df.TypeofContact.mode()[0],inplace =  True)
+
+#Duration of Pitch
+
+df.DurationOfPitch.fillna(df.DurationOfPitch.median(),inplace=True)
+
+#NumberofFollowup
+
+df.NumberOfFollowups.fillna(df.NumberOfFollowups.mode()[0],inplace= True)
+
+#PreferredPropertyStar
+
+df.PreferredPropertyStar.fillna(df.PreferredPropertyStar.mode()[0],inplace=True)
+
+#NumberofTrips
+
+df.NumberOfTrips.fillna(df.NumberOfTrips.median(),inplace= True)
+
+#NumberOfChildrenVisiting
+
+df.NumberOfChildrenVisiting.fillna(df.NumberOfChildrenVisiting.mode()[0],inplace= True)
+
+#MonthlyIncome
+
+df.MonthlyIncome.fillna(df.MonthlyIncome.median() , inplace=True)
+
+# %%
+df.isnull().sum()
+
+# %%
+df.head()
+
+# %%
+df.drop("CustomerID",inplace=True,axis=1)
+
+# %% [markdown]
+# FEATURE ENGINEERING
+
+# %% [markdown]
+# Feature Extraction,analysis and target
+
+# %%
+#create new columns for feature
+
+df['Total_Visitors'] = df['NumberOfPersonVisiting']+df['NumberOfChildrenVisiting']
+df.drop(columns=['NumberOfPersonVisiting','NumberOfChildrenVisiting'],axis=1,inplace= True)
+
+# %%
+#get no. all the numeric features 
+
+num_features = [feature for feature in df.columns if df[feature].dtype != 'O']
+print('No.of Numerical features : ', len(num_features))
+
+# %%
+# no. of categorical features
+
+cat_features = [feature for feature in df.columns if df[feature].dtype == 'O']
+print("No.of Categorical Features :", len(cat_features))
+
+# %%
+# no. of Discrete features
+
+discrete_features = [ feature for feature in num_features if len(df[feature].unique())<= 25]
+print('Num of Discrete Features:', len(discrete_features))
+
+# %%
+continuous_features = [ feature for feature in num_features if feature not in discrete_features ]
+print ('No.of Continuous features:',len(continuous_features))
+
+# %%
+df.head()
+
+# %%
+#Univariate EDA for Categorical Features
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+for col in cat_features:
+    plt.figure(figsize = (8,4))
+    sns.countplot(data=df,x=col)
+    plt.title(f"Count Plot - {col}")
+    plt.xticks(rotation = 45)
+    plt.show()
+
+
+# %%
+# Bivariate EDA : Categorical vs Target ,helps to see which categories have higher conversion rates
+
+for col in cat_features:
+    plt.figure(figsize=(8,4))
+    sns.countplot(data=df , x=col,hue = 'ProdTaken')
+    plt.title(f"{col} vs ProdTaken")
+    plt.xticks(rotation =  45)
+    plt.show()
+
+
+# %%
+#Bivariate Analysis — Category vs Target (ProdTaken)
+for col in cat_features:
+    plt.figure(figsize=(20,20))
+    plotnumber=1
+    if plotnumber<=15:
+        ax = plt.subplot(5,3,plotnumber)
+        sns.countplot(x=df[col],hue='ProdTaken',data=df,color='orange')
+        plt.xlabel(col)
+
+        plotnumber+=1
+    plt.tight_layout()
+    plt.show()
+
+
+# %%
+#Conversion Rate by Category (Most Important)
+
+#This reveals which category has the highest chance of purchasing the package
+
+results = {}
+
+for col in cat_features:
+    results[col] = df.groupby(col)['ProdTaken'].mean()
+
+# Convert to a nice dataframe
+conv_df = pd.concat(results).reset_index()
+conv_df.columns = ['Feature', 'Category', 'Conversion_Rate']
+
+conv_df
+
+# %%
+#Summary Table (Counts + Conversion + Avg Income)
+
+for col in cat_features:
+    display(df.groupby(col).agg(Count=('ProdTaken','count'),ConversionRate=('ProdTaken','mean'),AvgIncome=('MonthlyIncome','mean'))
+            .sort_values('ConversionRate',ascending=False))
+
+# %%
+#Categorical Association with Target (Cramér’s V)
+#Measures the strength of relationship between categorical features and the target.
+
+import scipy.stats as ss
+import numpy as np
+from scipy.sparse.linalg import eigsh, eigs
+
+
+def cramers_v(x, y):
+    confusion_matrix = pd.crosstab(x, y)
+    chi2 = ss.chi2_contingency(confusion_matrix)[0]
+    n = confusion_matrix.sum().sum()
+    phi2 = chi2 / n
+    r, k = confusion_matrix.shape
+    phi2corr = max(0, phi2 - ((k-1)*(r-1))/(n-1))
+    rcorr = r - ((r-1)**2)/(n-1)
+    kcorr = k - ((k-1)**2)/(n-1)
+    return np.sqrt(phi2corr / min((kcorr-1), (rcorr-1)))
+
+for col in cat_features:
+    print(col, ":", cramers_v(df[col], df['ProdTaken']))
+
+
+# %% [markdown]
+# Analysing Features and target 
+
+# %%
+from sklearn.model_selection import train_test_split
+X = df.drop(['ProdTaken'],axis=1)
+y = df["ProdTaken"]
+
+# %%
+X.head()
+
+# %%
+y.value_counts()
+
+# %%
+from sklearn.model_selection import train_test_split
+X_train,X_test,y_train,y_test = train_test_split(X,y,test_size = 0.2,random_state=42)
+
+# %%
+X_train.shape , X_test.shape
+
+# %%
+X.info()
+
+# %%
+target_dist = df['ProdTaken'].value_counts()
+
+fig, ax = plt.subplots(1, 1, figsize=(8,5))
+
+barplot = plt.bar(target_dist.index, target_dist, color = 'lightgreen', alpha = 0.8)
+barplot[1].set_color('darkred')
+
+ax.set_title('Target Distribution')
+ax.annotate("percentage of Taken Prod : {}%".format(df['ProdTaken'].sum() / len(df['ProdTaken'])),
+              xy=(0, 0),xycoords='axes fraction', 
+              xytext=(0,-50), textcoords='offset points',
+              va="top", ha="left", color='grey',
+              bbox=dict(boxstyle='round', fc="w", ec='w'))
+
+plt.xlabel('Target', fontsize = 12, weight = 'bold')
+plt.show()
+
+# %% [markdown]
+# RESAMPLING : A widely adopted technique for dealing with highly unbalanced datasets is called resampling. It consists of removing samples from the majority class (under-sampling) and / or adding more examples from the minority class (over-sampling).
+
+# %%
+# Class count
+count_class = df['ProdTaken'].value_counts()
+
+count_class_0 = count_class.get(0, 0)
+count_class_1 = count_class.get(1, 0)
+
+# Divide by class
+df_class_0 = df[df['ProdTaken'] == 0]
+df_class_1 = df[df['ProdTaken'] == 1]
+
+print("Not Taken:", count_class_0)
+print("Taken:", count_class_1)
+
+
+# %%
+#Check real values inside the column
+print(df['ProdTaken'].unique())
+print(df['ProdTaken'].value_counts())
+
+# %%
+df_class_0_under = df_class_0.sample(count_class_1,random_state=42)
+df_under = pd.concat([df_class_0_under, df_class_1], axis=0)
+
+print('Random under-sampling:')
+print(df_under['ProdTaken'].value_counts())
+
+df_under['ProdTaken'].value_counts().plot(kind='bar', title='Count (target)');
+plt.show()
+
+# %%
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import seaborn as sns
+trainset,testset = train_test_split(df_under , test_size = 0.2,random_state=42)
+
+# --- Create EXACTLY 2 subplots ---
+fig,ax = plt.subplots(1,2,figsize = (10,5))
+
+# --- Train set plot ---
+sns.countplot(x='ProdTaken' , data = trainset,ax=ax[0],palette="Set3") 
+ax[0].set_title('Train_Set_Distribution')
+
+# --- Test set plot ---
+sns.countplot(x = 'ProdTaken' , data = testset,ax=ax[1],palette="Set2")
+ax[1].set_title('Test_Set_Distribution')
+
+plt.show()
+
+# %%
+X_train = trainset.drop(['ProdTaken'],axis=1)
+y_train = trainset['ProdTaken']
+X_test = testset.drop(['ProdTaken'],axis=1)
+y_test = testset['ProdTaken']
+
+# %%
+print("Train_class_distribution:")
+print(y_train.value_counts())
+print("\nTest_class_distribution:")
+print(y_test.value_counts())
+
+# %%
+print("X_train shape:", X_train.shape)
+print("y_train shape:", y_train.shape)
+print("X_test shape:", X_test.shape)
+print("y_test shape:", y_test.shape)
+
+
+# %% [markdown]
+# Models Creation:
+
+# %%
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.decomposition import PCA
+from sklearn.ensemble import IsolationForest
+
+# %%
+df.head()
+
+# %%
+#from sklearn.preprocessing import StandardScaler
+#scaler = StandardScaler()
+#scaled_data = scaler.fit_transform(df)
+
+
+# the code didnot work as standard scaler is for numerical data and I am using categorical data
+
+
+# %%
+# Create Column Transformer with 3 types of transformers
+
+cat_features = X_train.select_dtypes(include = "object").columns
+num_features = X_train.select_dtypes(exclude = "object").columns
+
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.compose import ColumnTransformer
+
+numeric_transformer =  StandardScaler()
+oh_transformer = OneHotEncoder(drop= 'first')
+
+preprocessor = ColumnTransformer(
+    [
+        ("OneHotEncoder",oh_transformer,cat_features),
+         ("StandardScaler", numeric_transformer,num_features)
+    ]
+)
+
+
+# %% [markdown]
+# # MODEL CREATION
+
+# %% [markdown]
+# You now need to attach a ML model (Logistic Regression, Random Forest, XGBoost, etc.) to the preprocessor.
+
+# %% [markdown]
+# --> Logistic Regression
+
+# %%
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+
+model = Pipeline ( 
+    steps =  [
+        ("preprocessing", preprocessor),
+        ("classifier",LogisticRegression(max_iter=1000))
+    ]
+)
+
+# %%
+X_train
+
+
+# %% [markdown]
+# 
+
+# %%
+#Fit the Model on Training Data
+model.fit(X_train,y_train)
+
+# %%
+# making predictions
+
+y_pred =model.predict(X_test)
+
+# %%
+#Evaluating the Logistic regression model 
+
+from sklearn.metrics import accuracy_score,confusion_matrix,classification_report
+
+print("Accuracy:",accuracy_score(y_test,y_pred))
+print(classification_report(y_test,y_pred))
+sns.heatmap(confusion_matrix(y_test,y_pred),annot=True,fmt='d',cmap='Blues')
+plt.show()
+
+# %% [markdown]
+# --> Decision Tree, Random Forest,KNN,Naive Baiyes ,XGBoost
+
+# %%
+pip install --user xgboost
+
+
+# %%
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.pipeline import Pipeline
+import xgboost as xgb
+from xgboost import XGBClassifier
+
+# %%
+#Creating Model Dictionary
+
+models = {
+    "Decision Tree" : DecisionTreeClassifier(random_state=42),
+    "Random Forest" : RandomForestClassifier(random_state=42),
+    "KNN": KNeighborsClassifier(),
+    "NaiveBaiyes": GaussianNB(),
+    "XGBoost": XGBClassifier(eval_metric = 'logloss',random_state =42)
+}
+
+# %%
+#Creating Function to Train + Evaluate Model
+def train_and_evaluate(model, model_name):
+    pipe = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("model", model)
+    ])
+    
+    pipe.fit(X_train, y_train)
+    y_pred = pipe.predict(X_test)
+
+    print(f"\n==================== {model_name} ====================")
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print(classification_report(y_test, y_pred))
+
+    # Confusion Matrix Heatmap
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(5,4))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title(f"Confusion Matrix - {model_name}")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.show()
+
+
+# %%
+for name, model in models.items():
+    train_and_evaluate(model, name)
+
+
+# %% [markdown]
+# Model Comparison
+
+# %% [markdown]
+# 
+
+# %%
+from sklearn.metrics import roc_curve, auc, precision_recall_curve
+
+# %%
+#ROC Curve 
+
+plt.figure(figsize=(8,6))
+
+for name, model in models.items():
+    # Use pipeline
+    pipe = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("classifier", model)
+    ])
+    pipe.fit(X_train, y_train)
+    
+    # Predict probabilities
+    if hasattr(pipe.named_steps['classifier'], "predict_proba"):
+        y_pred_prob = pipe.predict_proba(X_test)[:,1]
+    else:  # For models like KNN or NB without predict_proba
+        y_pred_prob = pipe.predict(X_test)
+    
+    fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
+    roc_auc = auc(fpr, tpr)
+    plt.plot(fpr, tpr, label=f"{name} (AUC = {roc_auc:.3f})")
+
+plt.plot([0,1],[0,1],'--', color='gray')
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curves")
+plt.legend()
+plt.show()
+
+# %%
+#Precision Recall Curve 
+
+plt.figure(figsize=(8,6))
+
+for name, model in models.items():
+    pipe = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("classifier", model)
+    ])
+    pipe.fit(X_train, y_train)
+    
+    if hasattr(pipe.named_steps['classifier'], "predict_proba"):
+        y_pred_prob = pipe.predict_proba(X_test)[:,1]
+    else:
+        y_pred_prob = pipe.predict(X_test)
+    
+    precision, recall, _ = precision_recall_curve(y_test, y_pred_prob)
+    plt.plot(recall, precision, label=name)
+
+plt.xlabel("Recall")
+plt.ylabel("Precision")
+plt.title("Precision–Recall Curve")
+plt.legend()
+plt.show()
+
+
+
+# %%
+# Classification Comparison (Accuracy)
+
+accuracy_list = []
+
+for name, model in models.items():
+    pipe = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("classifier", model)
+    ])
+    pipe.fit(X_train, y_train)
+    y_pred = pipe.predict(X_test)
+    accuracy_list.append({"Model": name, "Accuracy": accuracy_score(y_test, y_pred)})
+
+acc_df = pd.DataFrame(accuracy_list)
+plt.figure(figsize=(8,5))
+sns.barplot(x="Accuracy", y="Model", data=acc_df, palette="Set2")
+plt.title("Model Accuracy Comparison")
+plt.xlim(0,1)
+plt.show()
+
+
+# %%
+# Comparing the results 
+
+accuracy_list = []
+roc_auc_list = []
+
+for name, model in models.items():
+    pipe = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("classifier", model)
+    ])
+    pipe.fit(X_train, y_train)
+    y_pred = pipe.predict(X_test)
+    
+    # Accuracy
+    acc = accuracy_score(y_test, y_pred)
+    
+    # ROC AUC
+    if hasattr(pipe.named_steps['classifier'], "predict_proba"):
+        y_prob = pipe.predict_proba(X_test)[:,1]
+        roc_auc_score_val = auc(*roc_curve(y_test, y_prob)[:2])
+    else:
+        y_prob = pipe.predict(X_test)
+        roc_auc_score_val = auc(*roc_curve(y_test, y_prob)[:2])
+    
+    accuracy_list.append({"Model": name, "Accuracy": acc, "ROC_AUC": roc_auc_score_val})
+
+results_df = pd.DataFrame(accuracy_list).sort_values(by="ROC_AUC", ascending=False)
+results_df
+
+
+# %%
+#Feature Importance (for Tree-Based Models)
+
+tree_models = ["Decision Tree", "Random Forest", "XGBoost"]
+
+for name in tree_models:
+    model = models[name]
+    pipe = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("classifier", model)
+    ])
+    pipe.fit(X_train, y_train)
+    
+    # Get feature names after one-hot encoding
+    cat_features_ohe = pipe.named_steps['preprocessor'].named_transformers_['OneHotEncoder'].get_feature_names_out(cat_features)
+    all_features = np.concatenate([cat_features_ohe, num_features])
+    
+    importances = pipe.named_steps['classifier'].feature_importances_
+    feat_imp = pd.Series(importances, index=all_features).sort_values(ascending=False)
+    
+    plt.figure(figsize=(8,6))
+    feat_imp[:15].plot(kind='barh')
+    plt.title(f"Top 15 Feature Importances - {name}")
+    plt.gca().invert_yaxis()
+    plt.show()
+
+
+# %% [markdown]
+# Threshold Tuning for Random Forest
+
+# %%
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+threshold = 0.5
+
+for name, model in models.items():
+    print('---------------------------------')
+    print(name)
+    
+    # Create a pipeline: preprocessing + classifier
+    pipe = Pipeline([
+        ("preprocessor", preprocessor),  # handles one-hot + scaling
+        ("classifier", model)
+    ])
+    
+    # Fit the pipeline
+    pipe.fit(X_train, y_train)
+    
+    # Predict probabilities
+    if hasattr(pipe.named_steps['classifier'], "predict_proba"):
+        y_prob = pipe.predict_proba(X_test)[:,1]
+    else:
+        # For models that don't support predict_proba
+        y_prob = pipe.predict(X_test)
+    
+    # Apply threshold
+    y_pred_new = (y_prob >= threshold).astype(int)
+    
+    # Evaluate
+    print("Accuracy:", accuracy_score(y_test, y_pred_new))
+    print(classification_report(y_test, y_pred_new))
+    
+    cm = confusion_matrix(y_test, y_pred_new)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title(f"{name} - Confusion Matrix (Threshold={threshold})")
+    plt.show()
+
+# %%
+#Threshold tuning
+
+#fitting pipeline
+
+#getting predicted probabilities
+
+# Probability for class 1 ('ProdTaken=1')
+y_prob = pipe.predict_proba(X_test)[:,1]  # [:,1] selects the positive class
+
+#Applying different thresholds
+import numpy as np
+from sklearn.metrics import f1_score, precision_score, recall_score
+thresholds = np.arange(0.1, 0.9, 0.1)  # test thresholds from 0.1 to 0.8
+
+for t in thresholds:
+    y_pred_t = (y_prob >= t).astype(int)
+    f1 = f1_score(y_test, y_pred_t)
+    precision = precision_score(y_test, y_pred_t)
+    recall = recall_score(y_test, y_pred_t)
+    print(f"Threshold={t:.1f} -> Precision={precision:.3f}, Recall={recall:.3f}, F1={f1:.3f}")
+
+
+# %%
+#Another method for threshold comparison
+#y_prob = pipe.predict_proba(X_test)[:,1]  # [:,1] selects the positive class
+#thresholds = [0.3,0.4,0.5,0.6,0.7,0.8]
+#best_t = 0.5
+#best_acc = 0
+##for t in thresholds:
+#    y_pred = (y_prob >= t).astype(int)
+ #   acc = accuracy_score(y_test, y_pred)
+  #  if acc > best_acc:
+   #     best_acc=acc
+    #    best_t=t
+
+#print('Accuracy on test set :',round(best_acc*100),"%")
+#print('Best threshold :',best_t)
+
+# %%
+#Correct Threshold Tuning Code (With F1 Score)
+from sklearn.metrics import f1_score
+
+y_prob = pipe.predict_proba(X_test)[:,1]
+
+thresholds = [0.3,0.4,0.5,0.6,0.7,0.8]
+best_t = 0.3
+best_f1 = 0
+
+for t in thresholds:
+    y_pred = (y_prob >= t).astype(int)
+    f1 = f1_score(y_test, y_pred)
+    print(f"Threshold={t} → F1={f1:.4f}")
+
+    if f1 > best_f1:
+        best_f1 = f1
+        best_t = t
+
+print("\nBest F1:", best_f1)
+print("Best Threshold:", best_t)
+
+# %%
+best_model = Pipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", XGBClassifier(random_state=42))
+])
+
+best_model.fit(X_train, y_train)
+y_prob = best_model.predict_proba(X_test)[:,1]   # probability of class 1
+
+
+# %%
+import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+thresholds = np.arange(0.1, 0.9, 0.05)
+
+results = []
+
+for t in thresholds:
+    y_pred_t = (y_prob >= t).astype(int)
+    results.append([
+        t,
+        accuracy_score(y_test, y_pred_t),
+        precision_score(y_test, y_pred_t),
+        recall_score(y_test, y_pred_t),
+        f1_score(y_test, y_pred_t)
+    ])
+
+threshold_df = pd.DataFrame(results, columns=["Threshold","Accuracy","Precision","Recall","F1"])
+threshold_df
+
+
+# %%
+plt.figure(figsize=(10,6))
+plt.plot(threshold_df["Threshold"], threshold_df["Precision"], label="Precision")
+plt.plot(threshold_df["Threshold"], threshold_df["Recall"], label="Recall")
+plt.plot(threshold_df["Threshold"], threshold_df["F1"], label="F1 Score")
+plt.xlabel("Threshold")
+plt.ylabel("Score")
+plt.title("Threshold Tuning Curve")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# %%
+best_t = threshold_df.loc[threshold_df['Recall'].idxmax(), 'Threshold']
+best_t
+
+# %%
+y_pred_best = (y_prob >= best_t).astype(int)
+
+print("Best Threshold:", best_t)
+print(classification_report(y_test, y_pred_best))
+
+sns.heatmap(confusion_matrix(y_test, y_pred_best), annot=True, fmt='d', cmap='Blues')
+plt.title(f"Confusion Matrix (Threshold = {best_t:.2f})")
+plt.show()
+
+# %%
+#SAVING THE MODELS
+
+# save the modelS 
+
+# we dont have to retrain the model every time
+# the model can be used in production application
+# it helps in sharing and deployement
+# pickle (.pkl format)
+# joblib (.joblib format)
+
+
+import pickle
+import joblib
+
+# %%
+filename = 'classification_models.sav'
+pickle.dump(models, open(filename, 'wb'))
+
+
+# %%
+X_test
+
+# %%
+pip install streamlit
+
+
+# %%
+pip version
+
+# %%
+
+
+
